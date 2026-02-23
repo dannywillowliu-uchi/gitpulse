@@ -3,13 +3,9 @@ name = "gitpulse"
 path = "/Users/dannyliu/personal_projects/gitpulse"
 branch = "main"
 objective = """
-Mission 1: Backend Data Layer
-
-Build github_client.py (async httpx wrapper with 202 retry, rate limit handling),
-cache.py (file-based JSON cache with TTL), and wire /api/analyze endpoint that
-returns full repo data. Leave git analysis fields as null/empty. Tests for all modules.
-
-Workers focus: github_client, cache, app integration (independent modules).
+Build the next highest-priority item from BACKLOG.md.
+Read CLAUDE.md for complete specifications, API schemas, and implementation details.
+Run verification before committing: .venv/bin/python -m pytest -q && .venv/bin/ruff check src/ tests/
 """
 
 [target.verification]
