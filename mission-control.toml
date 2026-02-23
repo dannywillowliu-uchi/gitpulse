@@ -5,19 +5,11 @@ branch = "main"
 objective = """
 Mission 1: Backend Data Layer
 
-Build github_client.py (async httpx wrapper with 202 retry, rate limit handling), cache.py
-(file-based JSON cache with TTL), and wire /api/analyze endpoint that returns full repo data.
-Leave git analysis fields as empty defaults. Tests for all modules.
+Build github_client.py (async httpx wrapper with 202 retry, rate limit handling),
+cache.py (file-based JSON cache with TTL), and wire /api/analyze endpoint that
+returns full repo data. Leave git analysis fields as null/empty. Tests for all modules.
 
-Key requirements:
-- GitHubClient class with async httpx, 202 retry with exponential backoff, rate limit handling
-- GITHUB_TOKEN env var support for authentication
-- Cache class with SHA256 key, ~/.cache/gitpulse/ dir, 1hr TTL, atomic writes
-- /api/analyze endpoint that parses repo URL, calls GitHubClient, returns full response schema
-- Git analysis fields (hotspots, file_tree, survival_curves) return empty lists for now
-- Comprehensive tests with mocked HTTP responses
-
-Read CLAUDE.md for complete specifications.
+Workers focus: github_client, cache, app integration (independent modules).
 """
 
 [target.verification]
