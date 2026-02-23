@@ -1,0 +1,36 @@
+[project]
+name = "gitpulse"
+version = "0.1.0"
+description = "GitHub project progress visualization dashboard"
+requires-python = ">=3.11"
+dependencies = [
+	"fastapi>=0.115.0",
+	"uvicorn>=0.32.0",
+	"httpx>=0.28.0",
+]
+
+[dependency-groups]
+dev = [
+	"pytest>=8.0.0",
+	"pytest-asyncio>=0.24.0",
+	"ruff>=0.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["W191", "E101"]
+
+[tool.ruff.format]
+indent-style = "tab"
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
