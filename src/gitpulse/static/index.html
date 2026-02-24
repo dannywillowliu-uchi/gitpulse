@@ -4,6 +4,9 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>GitPulse</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 	<script src="https://cdn.tailwindcss.com"></script>
 	<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
@@ -33,17 +36,21 @@
 	<style>
 		* { margin: 0; padding: 0; box-sizing: border-box; }
 		body {
-			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+			font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 			background: #0d1117;
 			color: #e6edf3;
 		}
-		@keyframes pulse-skeleton {
-			0%, 100% { opacity: 0.4; }
-			50% { opacity: 0.15; }
+		.font-mono {
+			font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+		}
+		@keyframes shimmer {
+			0% { background-position: -200% 0; }
+			100% { background-position: 200% 0; }
 		}
 		.skeleton {
-			background: #21262d;
-			animation: pulse-skeleton 1.5s ease-in-out infinite;
+			background: linear-gradient(90deg, #21262d 25%, #30363d 50%, #21262d 75%);
+			background-size: 200% 100%;
+			animation: shimmer 1.5s ease-in-out infinite;
 			border-radius: 6px;
 		}
 		.skeleton-text { height: 1rem; margin-bottom: 0.5rem; }
@@ -54,9 +61,37 @@
 			border: 1px solid #30363d;
 			border-radius: 12px;
 			padding: 1.25rem;
+			box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+			transition: border-color 0.2s, box-shadow 0.2s;
+		}
+		.card:hover {
+			border-color: #484f58;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+		}
+		.kpi-card {
+			position: relative;
+			overflow: hidden;
+		}
+		.kpi-card::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 3px;
+			background: linear-gradient(90deg, #58a6ff, #bc8cff);
+			opacity: 0;
+			transition: opacity 0.2s;
+		}
+		.kpi-card:hover::before {
+			opacity: 1;
 		}
 		@media (max-width: 639px) {
 			.card { padding: 0.75rem; border-radius: 8px; }
+			.card:hover {
+				border-color: #30363d;
+				box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+			}
 			#chart-timeline, #chart-survival { height: 240px !important; }
 			#chart-heatmap, #chart-languages { height: 220px !important; }
 			#chart-hotspots { height: 300px !important; }
@@ -64,7 +99,8 @@
 		}
 		.error-banner {
 			background: rgba(248, 81, 73, 0.1);
-			border: 1px solid #f85149;
+			border: 1px solid rgba(248, 81, 73, 0.3);
+			border-left: 3px solid #f85149;
 			border-radius: 8px;
 			padding: 0.75rem 1rem;
 			color: #f85149;
@@ -78,6 +114,7 @@
 			gap: 0.25rem;
 			align-items: center;
 			font-size: 0.8rem;
+			font-family: "IBM Plex Mono", monospace;
 			color: #8b949e;
 			margin-bottom: 0.5rem;
 			min-height: 1.5rem;
@@ -85,6 +122,9 @@
 		.treemap-breadcrumb span {
 			cursor: pointer;
 			color: #58a6ff;
+			background: rgba(88,166,255,0.08);
+			padding: 0.1rem 0.4rem;
+			border-radius: 4px;
 		}
 		.treemap-breadcrumb span:hover { text-decoration: underline; }
 		.treemap-breadcrumb span:last-child {
@@ -95,20 +135,33 @@
 		.d3-tooltip {
 			position: absolute;
 			padding: 8px 12px;
-			background: #161b22;
+			background: #1c2128;
 			border: 1px solid #30363d;
 			border-radius: 6px;
 			font-size: 0.8rem;
+			font-family: "IBM Plex Sans", sans-serif;
 			color: #e6edf3;
 			pointer-events: none;
 			z-index: 100;
 			white-space: nowrap;
+			box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+			backdrop-filter: blur(8px);
+		}
+		.section-header {
+			border-left: 2px solid #58a6ff;
+			padding-left: 0.75rem;
+			margin-bottom: 0.75rem;
+		}
+		.section-divider {
+			height: 1px;
+			background: linear-gradient(90deg, transparent, #30363d, transparent);
+			margin: 0.5rem 0;
 		}
 	</style>
 </head>
 <body class="bg-gp-bg min-h-screen overflow-x-hidden">
 	<!-- Header -->
-	<header class="border-b border-gp-border px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+	<header class="border-b border-gp-border/50 px-3 sm:px-4 md:px-6 py-3 sm:py-4" style="background: linear-gradient(180deg, rgba(88,166,255,0.03) 0%, transparent 100%);">
 		<div class="max-w-7xl mx-auto flex items-center gap-2 sm:gap-4 flex-wrap">
 			<h1 class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gp-blue to-gp-purple bg-clip-text text-transparent whitespace-nowrap">
 				GitPulse
@@ -118,11 +171,11 @@
 					id="repo-input"
 					type="text"
 					placeholder="owner/repo or https://github.com/owner/repo"
-					class="flex-1 bg-gp-input border border-gp-border rounded-lg px-4 py-2 text-gp-text placeholder-gp-muted focus:outline-none focus:border-gp-blue transition-colors"
+					class="flex-1 bg-gp-input border border-gp-border rounded-lg px-4 py-2 text-gp-text placeholder-gp-muted focus:outline-none focus:border-gp-blue focus:shadow-[0_0_0_3px_rgba(88,166,255,0.15)] transition-all font-mono"
 				>
 				<button
 					id="analyze-btn"
-					class="bg-gp-blue hover:bg-blue-500 text-white font-medium px-3 sm:px-5 py-2 rounded-lg transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+					class="bg-gp-blue hover:bg-blue-500 text-white font-medium px-3 sm:px-5 py-2 rounded-lg transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-[0_0_20px_rgba(88,166,255,0.4)]"
 				>
 					Analyze
 				</button>
@@ -130,10 +183,10 @@
 		</div>
 		<div class="max-w-7xl mx-auto mt-2 flex items-center gap-2 flex-wrap pl-[calc(theme(spacing.0)+0px)]">
 			<span class="text-gp-muted text-xs">Try:</span>
-			<button class="example-chip bg-gp-border/50 border border-gp-border text-gp-text text-xs px-3 py-1 rounded-full hover:border-gp-blue hover:text-gp-blue transition-colors" data-repo="facebook/react">facebook/react</button>
-			<button class="example-chip bg-gp-border/50 border border-gp-border text-gp-text text-xs px-3 py-1 rounded-full hover:border-gp-blue hover:text-gp-blue transition-colors" data-repo="pallets/flask">pallets/flask</button>
-			<button class="example-chip bg-gp-border/50 border border-gp-border text-gp-text text-xs px-3 py-1 rounded-full hover:border-gp-blue hover:text-gp-blue transition-colors" data-repo="fastapi/fastapi">fastapi/fastapi</button>
-			<button class="example-chip bg-gp-border/50 border border-gp-border text-gp-text text-xs px-3 py-1 rounded-full hover:border-gp-blue hover:text-gp-blue transition-colors" data-repo="d3/d3">d3/d3</button>
+			<button class="example-chip font-mono bg-gp-border/50 border border-gp-border text-gp-text text-xs px-3 py-1 rounded-full hover:border-gp-blue hover:text-gp-blue hover:bg-gp-blue/5 transition-all" data-repo="facebook/react">facebook/react</button>
+			<button class="example-chip font-mono bg-gp-border/50 border border-gp-border text-gp-text text-xs px-3 py-1 rounded-full hover:border-gp-blue hover:text-gp-blue hover:bg-gp-blue/5 transition-all" data-repo="pallets/flask">pallets/flask</button>
+			<button class="example-chip font-mono bg-gp-border/50 border border-gp-border text-gp-text text-xs px-3 py-1 rounded-full hover:border-gp-blue hover:text-gp-blue hover:bg-gp-blue/5 transition-all" data-repo="fastapi/fastapi">fastapi/fastapi</button>
+			<button class="example-chip font-mono bg-gp-border/50 border border-gp-border text-gp-text text-xs px-3 py-1 rounded-full hover:border-gp-blue hover:text-gp-blue hover:bg-gp-blue/5 transition-all" data-repo="d3/d3">d3/d3</button>
 		</div>
 	</header>
 
@@ -148,35 +201,41 @@
 		</div>
 
 		<!-- Loading Status -->
-		<div id="loading-status" class="text-center text-gp-muted py-2 mb-4" style="display:none;">
-			Analyzing <span id="loading-repo" class="text-gp-blue"></span>...
+		<div id="loading-status" class="flex items-center justify-center py-2 mb-4" style="display:none;">
+			<div class="inline-flex items-center gap-2 bg-gp-input border border-gp-border rounded-full px-4 py-1.5">
+				<svg class="animate-spin h-4 w-4 text-gp-blue" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+					<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+				</svg>
+				<span class="text-gp-muted text-sm">Analyzing <span id="loading-repo" class="text-gp-blue font-mono"></span></span>
+			</div>
 		</div>
 
 		<!-- KPI Cards -->
 		<div id="kpi-section" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4 mb-4 md:mb-6" style="display:none;">
-			<div class="card text-center" id="kpi-commits">
-				<div class="text-gp-muted text-sm mb-1">Total Commits</div>
-				<div class="text-2xl sm:text-3xl font-bold text-gp-text" data-target="0">0</div>
+			<div class="card kpi-card text-center" id="kpi-commits">
+				<div class="text-gp-muted text-xs font-medium uppercase tracking-wider mb-1">Total Commits</div>
+				<div class="text-2xl sm:text-3xl font-bold text-gp-text font-mono" data-kpi-value data-target="0">0</div>
 			</div>
-			<div class="card text-center" id="kpi-contributors">
-				<div class="text-gp-muted text-sm mb-1">Contributors</div>
-				<div class="text-2xl sm:text-3xl font-bold text-gp-text" data-target="0">0</div>
+			<div class="card kpi-card text-center" id="kpi-contributors">
+				<div class="text-gp-muted text-xs font-medium uppercase tracking-wider mb-1">Contributors</div>
+				<div class="text-2xl sm:text-3xl font-bold text-gp-text font-mono" data-kpi-value data-target="0">0</div>
 			</div>
-			<div class="card text-center" id="kpi-loc">
-				<div class="text-gp-muted text-sm mb-1">Lines of Code</div>
-				<div class="text-2xl sm:text-3xl font-bold text-gp-text" data-target="0">0</div>
+			<div class="card kpi-card text-center" id="kpi-loc">
+				<div class="text-gp-muted text-xs font-medium uppercase tracking-wider mb-1">Lines of Code</div>
+				<div class="text-2xl sm:text-3xl font-bold text-gp-text font-mono" data-kpi-value data-target="0">0</div>
 			</div>
-			<div class="card text-center" id="kpi-prs">
-				<div class="text-gp-muted text-sm mb-1">Open PRs</div>
-				<div class="text-2xl sm:text-3xl font-bold text-gp-text" data-target="0">0</div>
+			<div class="card kpi-card text-center" id="kpi-prs">
+				<div class="text-gp-muted text-xs font-medium uppercase tracking-wider mb-1">Open PRs</div>
+				<div class="text-2xl sm:text-3xl font-bold text-gp-text font-mono" data-kpi-value data-target="0">0</div>
 			</div>
-			<div class="card text-center" id="kpi-age">
-				<div class="text-gp-muted text-sm mb-1">Repo Age (days)</div>
-				<div class="text-2xl sm:text-3xl font-bold text-gp-text" data-target="0">0</div>
+			<div class="card kpi-card text-center" id="kpi-age">
+				<div class="text-gp-muted text-xs font-medium uppercase tracking-wider mb-1">Repo Age (days)</div>
+				<div class="text-2xl sm:text-3xl font-bold text-gp-text font-mono" data-kpi-value data-target="0">0</div>
 			</div>
-			<div class="card text-center" id="kpi-active-file">
-				<div class="text-gp-muted text-sm mb-1">Most Active</div>
-				<div class="text-lg font-bold text-gp-blue truncate" title="">--</div>
+			<div class="card kpi-card text-center" id="kpi-active-file">
+				<div class="text-gp-muted text-xs font-medium uppercase tracking-wider mb-1">Most Active</div>
+				<div class="text-lg font-bold text-gp-blue truncate font-mono" data-kpi-file title="">--</div>
 			</div>
 		</div>
 
@@ -192,35 +251,53 @@
 
 		<!-- Charts Grid -->
 		<div id="charts-section" style="display:none;">
+			<div class="section-divider"></div>
+
 			<!-- Commit Timeline - Full Width -->
 			<div class="card mb-4 lg:mb-6">
-				<h2 class="text-lg font-semibold text-gp-text mb-3">Commit Timeline</h2>
+				<div class="section-header">
+					<h2 class="text-xs font-semibold uppercase tracking-wider text-gp-muted">Commit Timeline</h2>
+					<p class="text-xs text-gp-muted/60 mt-0.5">Weekly additions and deletions over time</p>
+				</div>
 				<div id="chart-timeline" style="height:320px;"></div>
 			</div>
+
+			<div class="section-divider"></div>
 
 			<!-- Activity Heatmap + Language Donut - 60/40 -->
 			<div class="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6 mb-4 lg:mb-6">
 				<div class="card lg:col-span-3">
-					<h2 class="text-lg font-semibold text-gp-text mb-3">Activity Heatmap</h2>
+					<div class="section-header">
+						<h2 class="text-xs font-semibold uppercase tracking-wider text-gp-muted">Activity Heatmap</h2>
+						<p class="text-xs text-gp-muted/60 mt-0.5">Commits by day and hour</p>
+					</div>
 					<div id="chart-heatmap" style="height:280px;"></div>
 				</div>
 				<div class="card lg:col-span-2">
-					<h2 class="text-lg font-semibold text-gp-text mb-3">Languages</h2>
+					<div class="section-header">
+						<h2 class="text-xs font-semibold uppercase tracking-wider text-gp-muted">Languages</h2>
+						<p class="text-xs text-gp-muted/60 mt-0.5">Codebase composition by bytes</p>
+					</div>
 					<div id="chart-languages" style="height:280px;"></div>
 				</div>
 			</div>
 
+			<div class="section-divider"></div>
+
 			<!-- Contributor Table - Full Width -->
 			<div class="card mb-4 lg:mb-6">
-				<h2 class="text-lg font-semibold text-gp-text mb-3">Contributors</h2>
+				<div class="section-header">
+					<h2 class="text-xs font-semibold uppercase tracking-wider text-gp-muted">Contributors</h2>
+					<p class="text-xs text-gp-muted/60 mt-0.5">Ranked by total commits with activity sparklines</p>
+				</div>
 				<div class="overflow-x-auto">
 					<table class="w-full text-sm" id="contributor-table">
 						<thead>
 							<tr class="text-gp-muted border-b border-gp-border">
-								<th class="text-left py-2 px-3">Contributor</th>
-								<th class="text-right py-2 px-3">Commits</th>
-								<th class="text-center py-2 px-3">Activity</th>
-								<th class="text-right py-2 px-3">Share</th>
+								<th class="text-left py-2 px-3 text-xs font-semibold uppercase tracking-wider">Contributor</th>
+								<th class="text-right py-2 px-3 text-xs font-semibold uppercase tracking-wider">Commits</th>
+								<th class="text-center py-2 px-3 text-xs font-semibold uppercase tracking-wider">Activity</th>
+								<th class="text-right py-2 px-3 text-xs font-semibold uppercase tracking-wider">Share</th>
 							</tr>
 						</thead>
 						<tbody id="contributor-tbody"></tbody>
@@ -228,22 +305,35 @@
 				</div>
 			</div>
 
+			<div class="section-divider"></div>
+
 			<!-- Hotspot Bubble + File Treemap - 50/50 -->
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-4 lg:mb-6">
 				<div class="card">
-					<h2 class="text-lg font-semibold text-gp-text mb-3">Code Hotspots</h2>
+					<div class="section-header">
+						<h2 class="text-xs font-semibold uppercase tracking-wider text-gp-muted">Code Hotspots</h2>
+						<p class="text-xs text-gp-muted/60 mt-0.5">Files sized by LOC, colored by change frequency</p>
+					</div>
 					<div id="chart-hotspots" style="height:400px; position:relative;"></div>
 				</div>
 				<div class="card">
-					<h2 class="text-lg font-semibold text-gp-text mb-3">File Treemap</h2>
+					<div class="section-header">
+						<h2 class="text-xs font-semibold uppercase tracking-wider text-gp-muted">File Treemap</h2>
+						<p class="text-xs text-gp-muted/60 mt-0.5">Directory structure sized by LOC, colored by churn</p>
+					</div>
 					<div id="treemap-breadcrumb" class="treemap-breadcrumb"></div>
 					<div id="chart-treemap" style="height:370px; position:relative;"></div>
 				</div>
 			</div>
 
+			<div class="section-divider"></div>
+
 			<!-- Survival Curves - Full Width -->
 			<div class="card mb-4 lg:mb-6">
-				<h2 class="text-lg font-semibold text-gp-text mb-3">Code Survival Curves</h2>
+				<div class="section-header">
+					<h2 class="text-xs font-semibold uppercase tracking-wider text-gp-muted">Code Survival Curves</h2>
+					<p class="text-xs text-gp-muted/60 mt-0.5">How long added code survives over time</p>
+				</div>
 				<div id="chart-survival" style="height:320px;"></div>
 			</div>
 		</div>
@@ -265,11 +355,14 @@
 
 		<!-- Empty State -->
 		<div id="empty-state" class="flex flex-col items-center justify-center py-16 sm:py-24 md:py-32 text-center">
-			<h2 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gp-blue to-gp-purple bg-clip-text text-transparent mb-3">
+			<svg class="w-16 h-16 text-gp-muted/20 mb-6" fill="currentColor" viewBox="0 0 24 24">
+				<path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+			</svg>
+			<h2 class="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-gp-blue to-gp-purple bg-clip-text text-transparent mb-3">
 				GitPulse
 			</h2>
 			<p class="text-gp-muted text-base sm:text-lg mb-1">GitHub project progress visualization</p>
-			<p class="text-gp-muted text-sm">Enter a repository above to get started</p>
+			<p class="text-gp-muted text-sm">Enter a repository above to get started, or try one of the examples</p>
 		</div>
 	</main>
 
@@ -391,14 +484,14 @@
 				{ id: "kpi-age", value: summary.repo_age_days || 0 },
 			];
 			kpis.forEach(function(kpi) {
-				const el = document.querySelector("#" + kpi.id + " .text-3xl");
+				const el = document.querySelector("#" + kpi.id + " [data-kpi-value]");
 				if (el) {
 					el.dataset.target = kpi.value;
 					animateValue(el, kpi.value);
 				}
 			});
 			// Most active file (text, no animation)
-			const activeEl = document.querySelector("#kpi-active-file .text-lg");
+			const activeEl = document.querySelector("#kpi-active-file [data-kpi-file]");
 			if (activeEl) {
 				const file = summary.most_active_file || "--";
 				activeEl.textContent = file;
@@ -435,7 +528,7 @@
 			const chart = initChart("chart-timeline");
 			if (!chart) return;
 			if (!commitActivity || !commitActivity.length) {
-				chart.setOption({ title: { text: "No data", left: "center", top: "center", textStyle: { color: "#8b949e", fontSize: 14 } } });
+				chart.setOption({ title: { text: "No data", subtext: "This chart will populate when data is returned", left: "center", top: "center", textStyle: { color: "#8b949e", fontSize: 14 }, subtextStyle: { color: "#484f58", fontSize: 11 } } });
 				return;
 			}
 			const weeks = commitActivity.map(function(d) {
@@ -447,9 +540,10 @@
 			chart.setOption({
 				tooltip: {
 					trigger: "axis",
-					backgroundColor: "#161b22",
+					backgroundColor: "#1c2128",
 					borderColor: "#30363d",
-					textStyle: { color: "#e6edf3" },
+					textStyle: { color: "#e6edf3", fontFamily: '"IBM Plex Sans", sans-serif' },
+					extraCssText: "box-shadow: 0 4px 12px rgba(0,0,0,0.4); backdrop-filter: blur(8px);",
 					formatter: function(params) {
 						let html = "<strong>" + params[0].name + "</strong><br/>";
 						params.forEach(function(p) {
@@ -505,7 +599,7 @@
 			const chart = initChart("chart-heatmap");
 			if (!chart) return;
 			if (!punchCard || !punchCard.length) {
-				chart.setOption({ title: { text: "No data", left: "center", top: "center", textStyle: { color: "#8b949e", fontSize: 14 } } });
+				chart.setOption({ title: { text: "No data", subtext: "This chart will populate when data is returned", left: "center", top: "center", textStyle: { color: "#8b949e", fontSize: 14 }, subtextStyle: { color: "#484f58", fontSize: 11 } } });
 				return;
 			}
 			const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -522,9 +616,10 @@
 
 			chart.setOption({
 				tooltip: {
-					backgroundColor: "#161b22",
+					backgroundColor: "#1c2128",
 					borderColor: "#30363d",
-					textStyle: { color: "#e6edf3" },
+					textStyle: { color: "#e6edf3", fontFamily: '"IBM Plex Sans", sans-serif' },
+					extraCssText: "box-shadow: 0 4px 12px rgba(0,0,0,0.4); backdrop-filter: blur(8px);",
 					formatter: function(params) {
 						return days[params.value[1]] + " " + params.value[0] + ":00 - " + params.value[2] + " commits";
 					}
@@ -571,7 +666,7 @@
 			const chart = initChart("chart-languages");
 			if (!chart) return;
 			if (!languages || Object.keys(languages).length === 0) {
-				chart.setOption({ title: { text: "No data", left: "center", top: "center", textStyle: { color: "#8b949e", fontSize: 14 } } });
+				chart.setOption({ title: { text: "No data", subtext: "This chart will populate when data is returned", left: "center", top: "center", textStyle: { color: "#8b949e", fontSize: 14 }, subtextStyle: { color: "#484f58", fontSize: 11 } } });
 				return;
 			}
 			const colors = ["#58a6ff", "#bc8cff", "#3fb950", "#f85149", "#d29922", "#39d2c0", "#8b949e"];
@@ -584,9 +679,10 @@
 
 			chart.setOption({
 				tooltip: {
-					backgroundColor: "#161b22",
+					backgroundColor: "#1c2128",
 					borderColor: "#30363d",
-					textStyle: { color: "#e6edf3" },
+					textStyle: { color: "#e6edf3", fontFamily: '"IBM Plex Sans", sans-serif' },
+					extraCssText: "box-shadow: 0 4px 12px rgba(0,0,0,0.4); backdrop-filter: blur(8px);",
 					formatter: function(params) {
 						var pct = ((params.value / total) * 100).toFixed(1);
 						return params.name + ": " + params.value.toLocaleString() + " bytes (" + pct + "%)";
@@ -682,7 +778,7 @@
 			const chart = initChart("chart-survival");
 			if (!chart) return;
 			if (!survivalCurves || !survivalCurves.length) {
-				chart.setOption({ title: { text: "No data", left: "center", top: "center", textStyle: { color: "#8b949e", fontSize: 14 } } });
+				chart.setOption({ title: { text: "No data", subtext: "This chart will populate when data is returned", left: "center", top: "center", textStyle: { color: "#8b949e", fontSize: 14 }, subtextStyle: { color: "#484f58", fontSize: 11 } } });
 				return;
 			}
 			const colors = ["#58a6ff", "#bc8cff", "#3fb950", "#d29922", "#39d2c0", "#f85149", "#8b949e", "#e6edf3"];
@@ -709,9 +805,10 @@
 			chart.setOption({
 				tooltip: {
 					trigger: "axis",
-					backgroundColor: "#161b22",
+					backgroundColor: "#1c2128",
 					borderColor: "#30363d",
-					textStyle: { color: "#e6edf3" },
+					textStyle: { color: "#e6edf3", fontFamily: '"IBM Plex Sans", sans-serif' },
+					extraCssText: "box-shadow: 0 4px 12px rgba(0,0,0,0.4); backdrop-filter: blur(8px);",
 					formatter: function(params) {
 						var html = "Week " + params[0].value[0] + "<br/>";
 						params.forEach(function(p) {
@@ -757,7 +854,7 @@
 			// Clear previous
 			container.querySelectorAll("svg").forEach(function(s) { s.remove(); });
 			if (!hotspots || !hotspots.length) {
-				container.innerHTML = '<div class="flex items-center justify-center h-full text-gp-muted">No data</div>';
+				container.innerHTML = '<div class="flex flex-col items-center justify-center h-full text-gp-muted"><span>No data</span><span class="text-xs mt-1 opacity-50">This chart will populate when data is returned</span></div>';
 				return;
 			}
 			const width = container.clientWidth;
@@ -835,7 +932,7 @@
 			container.querySelectorAll("svg").forEach(function(s) { s.remove(); });
 			if (breadcrumbEl) breadcrumbEl.innerHTML = "";
 			if (!fileTree || !fileTree.length) {
-				container.innerHTML = '<div class="flex items-center justify-center h-full text-gp-muted">No data</div>';
+				container.innerHTML = '<div class="flex flex-col items-center justify-center h-full text-gp-muted"><span>No data</span><span class="text-xs mt-1 opacity-50">This chart will populate when data is returned</span></div>';
 				return;
 			}
 			const width = container.clientWidth;
