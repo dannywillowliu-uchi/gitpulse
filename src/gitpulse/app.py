@@ -14,17 +14,9 @@ from gitpulse.github_client import GitHubClient
 logger = logging.getLogger(__name__)
 
 try:
-	from gitpulse.git_analyzer import (
-		get_churn,
-		get_file_tree,
-		get_hotspots,
-		get_survival_curves,
-	)
+	from gitpulse.git_analyzer import analyze_repo
 except ImportError:
-	get_hotspots = None
-	get_file_tree = None
-	get_churn = None
-	get_survival_curves = None
+	analyze_repo = None
 
 app = FastAPI(title="GitPulse", version="0.1.0")
 STATIC_DIR = Path(__file__).parent / "static"
@@ -80,22 +72,11 @@ async def analyze(repo: str = Query(...)) -> dict | JSONResponse:
 				client.get_languages(owner, repo_name),
 			)
 
-		if get_hotspots is not None:
-			hotspots, file_tree_raw, churn_data, survival_curves = await asyncio.gather(
-				get_hotspots(repo_url),
-				get_file_tree(repo_url),
-				get_churn(repo_url),
-				get_survival_curves(repo_url),
-			)
-			churn_by_path = churn_data if isinstance(churn_data, dict) else {}
-			file_tree = [
-				{
-					"path": f["path"],
-					"loc": f["loc"],
-					"churn": churn_by_path.get(f["path"], 0),
-				}
-				for f in file_tree_raw
-			]
+		if analyze_repo is not None:
+			git_data = await analyze_repo(repo_url)
+			hotspots = git_data["hotspots"]
+			file_tree = git_data["file_tree"]
+			survival_curves = git_data["survival_curves"]
 		else:
 			hotspots = []
 			file_tree = []
