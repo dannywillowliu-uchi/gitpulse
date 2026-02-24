@@ -3,9 +3,14 @@ name = "gitpulse"
 path = "/Users/dannyliu/personal_projects/gitpulse"
 branch = "main"
 objective = """
-Build the next highest-priority item from BACKLOG.md.
-Read CLAUDE.md for complete specifications, API schemas, and implementation details.
-Run verification before committing: .venv/bin/python -m pytest -q && .venv/bin/ruff check src/ tests/
+GitPulse: GitHub project progress visualization dashboard.
+
+North star: a user pastes any GitHub repo URL at localhost:8000 and gets a rich
+interactive dashboard with commits, contributors, code hotspots, file structure,
+and code survival curves.
+
+Read CLAUDE.md for complete specs. Read BACKLOG.md for current status and remaining work.
+The strategist should assess what's built vs what's missing and propose the next objective.
 """
 
 [target.verification]
@@ -15,18 +20,18 @@ setup_command = "uv sync"
 setup_timeout = 120
 
 [scheduler]
-session_timeout = 2700
+session_timeout = 3600
 model = "opus"
 
 [scheduler.parallel]
 num_workers = 10
 
 [scheduler.budget]
-max_per_session_usd = 10.0
-max_per_run_usd = 60.0
+max_per_session_usd = 20.0
+max_per_run_usd = 150.0
 
 [continuous]
-max_wall_time_seconds = 5400
+max_wall_time_seconds = 10800
 verify_objective_completion = true
 
 [green_branch]
