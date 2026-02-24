@@ -1,52 +1,1030 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>GitPulse</title>
+	<script src="https://cdn.tailwindcss.com"></script>
+	<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+	<script>
+		tailwind.config = {
+			darkMode: "class",
+			theme: {
+				extend: {
+					colors: {
+						"gp-bg": "#0d1117",
+						"gp-card": "#161b22",
+						"gp-input": "#21262d",
+						"gp-border": "#30363d",
+						"gp-text": "#e6edf3",
+						"gp-muted": "#8b949e",
+						"gp-blue": "#58a6ff",
+						"gp-purple": "#bc8cff",
+						"gp-green": "#3fb950",
+						"gp-red": "#f85149",
+						"gp-orange": "#d29922",
+						"gp-cyan": "#39d2c0",
+					}
+				}
+			}
+		};
+	</script>
 	<style>
 		* { margin: 0; padding: 0; box-sizing: border-box; }
 		body {
 			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 			background: #0d1117;
 			color: #e6edf3;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			min-height: 100vh;
 		}
-		.container {
-			text-align: center;
-			max-width: 600px;
-			padding: 2rem;
+		@keyframes pulse-skeleton {
+			0%, 100% { opacity: 0.4; }
+			50% { opacity: 0.15; }
 		}
-		h1 {
-			font-size: 2.5rem;
-			margin-bottom: 0.5rem;
-			background: linear-gradient(135deg, #58a6ff, #bc8cff);
-			-webkit-background-clip: text;
-			-webkit-text-fill-color: transparent;
+		.skeleton {
+			background: #21262d;
+			animation: pulse-skeleton 1.5s ease-in-out infinite;
+			border-radius: 6px;
 		}
-		p {
-			color: #8b949e;
-			font-size: 1.1rem;
-			margin-bottom: 2rem;
-		}
-		.status {
-			display: inline-block;
-			padding: 0.5rem 1.5rem;
+		.skeleton-text { height: 1rem; margin-bottom: 0.5rem; }
+		.skeleton-value { height: 2.5rem; width: 60%; margin-bottom: 0.25rem; }
+		.skeleton-chart { height: 100%; min-height: 200px; }
+		.card {
+			background: #161b22;
 			border: 1px solid #30363d;
+			border-radius: 12px;
+			padding: 1.25rem;
+		}
+		.error-banner {
+			background: rgba(248, 81, 73, 0.1);
+			border: 1px solid #f85149;
 			border-radius: 8px;
+			padding: 0.75rem 1rem;
+			color: #f85149;
+			display: none;
+			margin-bottom: 1rem;
+		}
+		.error-banner.visible { display: flex; }
+		.sparkline-cell { width: 80px; height: 24px; }
+		.treemap-breadcrumb {
+			display: flex;
+			gap: 0.25rem;
+			align-items: center;
+			font-size: 0.8rem;
+			color: #8b949e;
+			margin-bottom: 0.5rem;
+			min-height: 1.5rem;
+		}
+		.treemap-breadcrumb span {
+			cursor: pointer;
 			color: #58a6ff;
-			font-size: 0.9rem;
+		}
+		.treemap-breadcrumb span:hover { text-decoration: underline; }
+		.treemap-breadcrumb span:last-child {
+			color: #e6edf3;
+			cursor: default;
+		}
+		.treemap-breadcrumb span:last-child:hover { text-decoration: none; }
+		.d3-tooltip {
+			position: absolute;
+			padding: 8px 12px;
+			background: #161b22;
+			border: 1px solid #30363d;
+			border-radius: 6px;
+			font-size: 0.8rem;
+			color: #e6edf3;
+			pointer-events: none;
+			z-index: 100;
+			white-space: nowrap;
 		}
 	</style>
 </head>
-<body>
-	<div class="container">
-		<h1>GitPulse</h1>
-		<p>GitHub project progress visualization</p>
-		<span class="status">Dashboard coming soon</span>
-	</div>
+<body class="bg-gp-bg min-h-screen">
+	<!-- Header -->
+	<header class="border-b border-gp-border px-6 py-4">
+		<div class="max-w-7xl mx-auto flex items-center gap-4 flex-wrap">
+			<h1 class="text-2xl font-bold bg-gradient-to-r from-gp-blue to-gp-purple bg-clip-text text-transparent whitespace-nowrap">
+				GitPulse
+			</h1>
+			<div class="flex-1 flex gap-2 min-w-[300px]">
+				<input
+					id="repo-input"
+					type="text"
+					placeholder="owner/repo or https://github.com/owner/repo"
+					class="flex-1 bg-gp-input border border-gp-border rounded-lg px-4 py-2 text-gp-text placeholder-gp-muted focus:outline-none focus:border-gp-blue transition-colors"
+				>
+				<button
+					id="analyze-btn"
+					class="bg-gp-blue hover:bg-blue-500 text-white font-medium px-5 py-2 rounded-lg transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+				>
+					Analyze
+				</button>
+			</div>
+		</div>
+	</header>
+
+	<!-- Main Content -->
+	<main class="max-w-7xl mx-auto px-6 py-6">
+		<!-- Error Banner -->
+		<div id="error-banner" class="error-banner">
+			<svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+				<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+			</svg>
+			<span id="error-message"></span>
+		</div>
+
+		<!-- Loading Status -->
+		<div id="loading-status" class="text-center text-gp-muted py-2 mb-4" style="display:none;">
+			Analyzing <span id="loading-repo" class="text-gp-blue"></span>...
+		</div>
+
+		<!-- KPI Cards -->
+		<div id="kpi-section" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6" style="display:none;">
+			<div class="card text-center" id="kpi-commits">
+				<div class="text-gp-muted text-sm mb-1">Total Commits</div>
+				<div class="text-3xl font-bold text-gp-text" data-target="0">0</div>
+			</div>
+			<div class="card text-center" id="kpi-contributors">
+				<div class="text-gp-muted text-sm mb-1">Contributors</div>
+				<div class="text-3xl font-bold text-gp-text" data-target="0">0</div>
+			</div>
+			<div class="card text-center" id="kpi-loc">
+				<div class="text-gp-muted text-sm mb-1">Lines of Code</div>
+				<div class="text-3xl font-bold text-gp-text" data-target="0">0</div>
+			</div>
+			<div class="card text-center" id="kpi-prs">
+				<div class="text-gp-muted text-sm mb-1">Open PRs</div>
+				<div class="text-3xl font-bold text-gp-text" data-target="0">0</div>
+			</div>
+			<div class="card text-center" id="kpi-age">
+				<div class="text-gp-muted text-sm mb-1">Repo Age (days)</div>
+				<div class="text-3xl font-bold text-gp-text" data-target="0">0</div>
+			</div>
+			<div class="card text-center" id="kpi-active-file">
+				<div class="text-gp-muted text-sm mb-1">Most Active</div>
+				<div class="text-lg font-bold text-gp-blue truncate" title="">--</div>
+			</div>
+		</div>
+
+		<!-- KPI Skeleton -->
+		<div id="kpi-skeleton" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6" style="display:none;">
+			<div class="card text-center"><div class="skeleton skeleton-text mx-auto w-20"></div><div class="skeleton skeleton-value mx-auto"></div></div>
+			<div class="card text-center"><div class="skeleton skeleton-text mx-auto w-20"></div><div class="skeleton skeleton-value mx-auto"></div></div>
+			<div class="card text-center"><div class="skeleton skeleton-text mx-auto w-20"></div><div class="skeleton skeleton-value mx-auto"></div></div>
+			<div class="card text-center"><div class="skeleton skeleton-text mx-auto w-20"></div><div class="skeleton skeleton-value mx-auto"></div></div>
+			<div class="card text-center"><div class="skeleton skeleton-text mx-auto w-20"></div><div class="skeleton skeleton-value mx-auto"></div></div>
+			<div class="card text-center"><div class="skeleton skeleton-text mx-auto w-20"></div><div class="skeleton skeleton-value mx-auto"></div></div>
+		</div>
+
+		<!-- Charts Grid -->
+		<div id="charts-section" style="display:none;">
+			<!-- Commit Timeline - Full Width -->
+			<div class="card mb-6">
+				<h2 class="text-lg font-semibold text-gp-text mb-3">Commit Timeline</h2>
+				<div id="chart-timeline" style="height:320px;"></div>
+			</div>
+
+			<!-- Activity Heatmap + Language Donut - 60/40 -->
+			<div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+				<div class="card lg:col-span-3">
+					<h2 class="text-lg font-semibold text-gp-text mb-3">Activity Heatmap</h2>
+					<div id="chart-heatmap" style="height:280px;"></div>
+				</div>
+				<div class="card lg:col-span-2">
+					<h2 class="text-lg font-semibold text-gp-text mb-3">Languages</h2>
+					<div id="chart-languages" style="height:280px;"></div>
+				</div>
+			</div>
+
+			<!-- Contributor Table - Full Width -->
+			<div class="card mb-6">
+				<h2 class="text-lg font-semibold text-gp-text mb-3">Contributors</h2>
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm" id="contributor-table">
+						<thead>
+							<tr class="text-gp-muted border-b border-gp-border">
+								<th class="text-left py-2 px-3">Contributor</th>
+								<th class="text-right py-2 px-3">Commits</th>
+								<th class="text-center py-2 px-3">Activity</th>
+								<th class="text-right py-2 px-3">Share</th>
+							</tr>
+						</thead>
+						<tbody id="contributor-tbody"></tbody>
+					</table>
+				</div>
+			</div>
+
+			<!-- Hotspot Bubble + File Treemap - 50/50 -->
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+				<div class="card">
+					<h2 class="text-lg font-semibold text-gp-text mb-3">Code Hotspots</h2>
+					<div id="chart-hotspots" style="height:400px; position:relative;"></div>
+				</div>
+				<div class="card">
+					<h2 class="text-lg font-semibold text-gp-text mb-3">File Treemap</h2>
+					<div id="treemap-breadcrumb" class="treemap-breadcrumb"></div>
+					<div id="chart-treemap" style="height:370px; position:relative;"></div>
+				</div>
+			</div>
+
+			<!-- Survival Curves - Full Width -->
+			<div class="card mb-6">
+				<h2 class="text-lg font-semibold text-gp-text mb-3">Code Survival Curves</h2>
+				<div id="chart-survival" style="height:320px;"></div>
+			</div>
+		</div>
+
+		<!-- Charts Skeleton -->
+		<div id="charts-skeleton" style="display:none;">
+			<div class="card mb-6"><div class="skeleton skeleton-text w-40"></div><div class="skeleton skeleton-chart mt-3"></div></div>
+			<div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+				<div class="card lg:col-span-3"><div class="skeleton skeleton-text w-36"></div><div class="skeleton skeleton-chart mt-3"></div></div>
+				<div class="card lg:col-span-2"><div class="skeleton skeleton-text w-28"></div><div class="skeleton skeleton-chart mt-3"></div></div>
+			</div>
+			<div class="card mb-6"><div class="skeleton skeleton-text w-32"></div><div class="skeleton skeleton-chart mt-3"></div></div>
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+				<div class="card"><div class="skeleton skeleton-text w-32"></div><div class="skeleton skeleton-chart mt-3" style="min-height:370px;"></div></div>
+				<div class="card"><div class="skeleton skeleton-text w-28"></div><div class="skeleton skeleton-chart mt-3" style="min-height:370px;"></div></div>
+			</div>
+			<div class="card mb-6"><div class="skeleton skeleton-text w-44"></div><div class="skeleton skeleton-chart mt-3"></div></div>
+		</div>
+
+		<!-- Empty State -->
+		<div id="empty-state" class="flex flex-col items-center justify-center py-32 text-center">
+			<h2 class="text-3xl font-bold bg-gradient-to-r from-gp-blue to-gp-purple bg-clip-text text-transparent mb-3">
+				GitPulse
+			</h2>
+			<p class="text-gp-muted text-lg mb-1">GitHub project progress visualization</p>
+			<p class="text-gp-muted text-sm">Enter a repository above to get started</p>
+		</div>
+	</main>
+
+	<!-- D3 Tooltip -->
+	<div id="d3-tooltip" class="d3-tooltip" style="display:none;"></div>
+
+	<script>
+	(function() {
+		"use strict";
+
+		const $ = (sel) => document.querySelector(sel);
+		const repoInput = $("#repo-input");
+		const analyzeBtn = $("#analyze-btn");
+		const errorBanner = $("#error-banner");
+		const errorMessage = $("#error-message");
+		const loadingStatus = $("#loading-status");
+		const loadingRepo = $("#loading-repo");
+		const kpiSection = $("#kpi-section");
+		const kpiSkeleton = $("#kpi-skeleton");
+		const chartsSection = $("#charts-section");
+		const chartsSkeleton = $("#charts-skeleton");
+		const emptyState = $("#empty-state");
+		const d3Tooltip = $("#d3-tooltip");
+
+		let echartsInstances = [];
+
+		// --- URL Parsing ---
+		function parseRepoInput(input) {
+			input = input.trim();
+			if (!input) return null;
+			// Strip github.com URL prefix
+			const urlMatch = input.match(
+				/(?:https?:\/\/)?(?:www\.)?github\.com\/([^/\s]+\/[^/\s#?]+)/
+			);
+			if (urlMatch) {
+				return urlMatch[1].replace(/\.git$/, "");
+			}
+			// Direct owner/repo format
+			const directMatch = input.match(/^([^/\s]+\/[^/\s]+)$/);
+			if (directMatch) {
+				return directMatch[1];
+			}
+			return null;
+		}
+
+		// --- UI State ---
+		function showError(msg) {
+			errorMessage.textContent = msg;
+			errorBanner.classList.add("visible");
+		}
+
+		function hideError() {
+			errorBanner.classList.remove("visible");
+		}
+
+		function setLoading(repo) {
+			hideError();
+			loadingRepo.textContent = repo;
+			loadingStatus.style.display = "block";
+			emptyState.style.display = "none";
+			kpiSection.style.display = "none";
+			chartsSection.style.display = "none";
+			kpiSkeleton.style.display = "grid";
+			chartsSkeleton.style.display = "block";
+			analyzeBtn.disabled = true;
+		}
+
+		function setLoaded() {
+			loadingStatus.style.display = "none";
+			kpiSkeleton.style.display = "none";
+			chartsSkeleton.style.display = "none";
+			kpiSection.style.display = "grid";
+			chartsSection.style.display = "block";
+			analyzeBtn.disabled = false;
+		}
+
+		function setIdle() {
+			loadingStatus.style.display = "none";
+			kpiSkeleton.style.display = "none";
+			chartsSkeleton.style.display = "none";
+			kpiSection.style.display = "none";
+			chartsSection.style.display = "none";
+			emptyState.style.display = "flex";
+			analyzeBtn.disabled = false;
+		}
+
+		function setErrorState() {
+			loadingStatus.style.display = "none";
+			kpiSkeleton.style.display = "none";
+			chartsSkeleton.style.display = "none";
+			analyzeBtn.disabled = false;
+		}
+
+		// --- KPI Count-up Animation ---
+		function animateValue(el, target, duration) {
+			if (duration === undefined) duration = 1200;
+			const start = 0;
+			const startTime = performance.now();
+			function update(now) {
+				const elapsed = now - startTime;
+				const progress = Math.min(elapsed / duration, 1);
+				// Ease out cubic
+				const eased = 1 - Math.pow(1 - progress, 3);
+				const current = Math.round(start + (target - start) * eased);
+				el.textContent = current.toLocaleString();
+				if (progress < 1) requestAnimationFrame(update);
+			}
+			requestAnimationFrame(update);
+		}
+
+		function renderKPIs(summary) {
+			const kpis = [
+				{ id: "kpi-commits", value: summary.total_commits || 0 },
+				{ id: "kpi-contributors", value: summary.contributors || 0 },
+				{ id: "kpi-loc", value: summary.loc || 0 },
+				{ id: "kpi-prs", value: summary.open_prs || 0 },
+				{ id: "kpi-age", value: summary.repo_age_days || 0 },
+			];
+			kpis.forEach(function(kpi) {
+				const el = document.querySelector("#" + kpi.id + " .text-3xl");
+				if (el) {
+					el.dataset.target = kpi.value;
+					animateValue(el, kpi.value);
+				}
+			});
+			// Most active file (text, no animation)
+			const activeEl = document.querySelector("#kpi-active-file .text-lg");
+			if (activeEl) {
+				const file = summary.most_active_file || "--";
+				activeEl.textContent = file;
+				activeEl.title = file;
+			}
+		}
+
+		// --- ECharts Helpers ---
+		function initChart(domId) {
+			const dom = document.getElementById(domId);
+			if (!dom) return null;
+			const chart = echarts.init(dom, null, { renderer: "canvas" });
+			echartsInstances.push(chart);
+			return chart;
+		}
+
+		function disposeAllCharts() {
+			echartsInstances.forEach(function(c) {
+				try { c.dispose(); } catch(e) {}
+			});
+			echartsInstances = [];
+			// Clear D3 containers
+			["chart-hotspots", "chart-treemap"].forEach(function(id) {
+				const el = document.getElementById(id);
+				if (el) {
+					const svg = el.querySelector("svg");
+					if (svg) svg.remove();
+				}
+			});
+		}
+
+		// --- Chart: Commit Timeline (Stacked Area) ---
+		function renderTimeline(commitActivity) {
+			const chart = initChart("chart-timeline");
+			if (!chart) return;
+			if (!commitActivity || !commitActivity.length) {
+				chart.setOption({ title: { text: "No data", left: "center", top: "center", textStyle: { color: "#8b949e", fontSize: 14 } } });
+				return;
+			}
+			const weeks = commitActivity.map(function(d) {
+				return new Date(d.week * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+			});
+			const additions = commitActivity.map(function(d) { return d.additions || 0; });
+			const deletions = commitActivity.map(function(d) { return -(d.deletions || 0); });
+
+			chart.setOption({
+				tooltip: {
+					trigger: "axis",
+					backgroundColor: "#161b22",
+					borderColor: "#30363d",
+					textStyle: { color: "#e6edf3" },
+					formatter: function(params) {
+						let html = "<strong>" + params[0].name + "</strong><br/>";
+						params.forEach(function(p) {
+							const val = Math.abs(p.value);
+							html += '<span style="color:' + p.color + ';">&#9679;</span> ' + p.seriesName + ": " + val.toLocaleString() + "<br/>";
+						});
+						return html;
+					}
+				},
+				grid: { left: 60, right: 20, top: 20, bottom: 40 },
+				xAxis: {
+					type: "category",
+					data: weeks,
+					axisLine: { lineStyle: { color: "#30363d" } },
+					axisLabel: { color: "#8b949e", rotate: 45, fontSize: 10 },
+					boundaryGap: false
+				},
+				yAxis: {
+					type: "value",
+					axisLine: { lineStyle: { color: "#30363d" } },
+					axisLabel: { color: "#8b949e" },
+					splitLine: { lineStyle: { color: "#21262d" } }
+				},
+				series: [
+					{
+						name: "Additions",
+						type: "line",
+						stack: "changes",
+						areaStyle: { opacity: 0.4 },
+						lineStyle: { width: 1 },
+						itemStyle: { color: "#3fb950" },
+						data: additions,
+						symbol: "none",
+						smooth: true
+					},
+					{
+						name: "Deletions",
+						type: "line",
+						stack: "changes",
+						areaStyle: { opacity: 0.4 },
+						lineStyle: { width: 1 },
+						itemStyle: { color: "#f85149" },
+						data: deletions,
+						symbol: "none",
+						smooth: true
+					}
+				]
+			});
+		}
+
+		// --- Chart: Activity Heatmap ---
+		function renderHeatmap(punchCard) {
+			const chart = initChart("chart-heatmap");
+			if (!chart) return;
+			if (!punchCard || !punchCard.length) {
+				chart.setOption({ title: { text: "No data", left: "center", top: "center", textStyle: { color: "#8b949e", fontSize: 14 } } });
+				return;
+			}
+			const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+			const hours = [];
+			for (var h = 0; h < 24; h++) {
+				hours.push(h + ":00");
+			}
+			// punchCard: [{day, hour, commits}]
+			var maxVal = 0;
+			var data = punchCard.map(function(d) {
+				if (d.commits > maxVal) maxVal = d.commits;
+				return [d.hour, d.day, d.commits || 0];
+			});
+
+			chart.setOption({
+				tooltip: {
+					backgroundColor: "#161b22",
+					borderColor: "#30363d",
+					textStyle: { color: "#e6edf3" },
+					formatter: function(params) {
+						return days[params.value[1]] + " " + params.value[0] + ":00 - " + params.value[2] + " commits";
+					}
+				},
+				grid: { left: 50, right: 20, top: 10, bottom: 40 },
+				xAxis: {
+					type: "category",
+					data: hours,
+					axisLine: { lineStyle: { color: "#30363d" } },
+					axisLabel: { color: "#8b949e", fontSize: 10 },
+					splitArea: { show: false }
+				},
+				yAxis: {
+					type: "category",
+					data: days,
+					axisLine: { lineStyle: { color: "#30363d" } },
+					axisLabel: { color: "#8b949e" },
+					splitArea: { show: false }
+				},
+				visualMap: {
+					min: 0,
+					max: maxVal || 1,
+					calculable: false,
+					orient: "horizontal",
+					left: "center",
+					bottom: 0,
+					inRange: { color: ["#161b22", "#58a6ff"] },
+					textStyle: { color: "#8b949e" },
+					show: false
+				},
+				series: [{
+					type: "heatmap",
+					data: data,
+					emphasis: {
+						itemStyle: { shadowBlur: 6, shadowColor: "rgba(88,166,255,0.5)" }
+					},
+					itemStyle: { borderRadius: 3, borderWidth: 2, borderColor: "#0d1117" }
+				}]
+			});
+		}
+
+		// --- Chart: Language Donut ---
+		function renderLanguages(languages) {
+			const chart = initChart("chart-languages");
+			if (!chart) return;
+			if (!languages || Object.keys(languages).length === 0) {
+				chart.setOption({ title: { text: "No data", left: "center", top: "center", textStyle: { color: "#8b949e", fontSize: 14 } } });
+				return;
+			}
+			const colors = ["#58a6ff", "#bc8cff", "#3fb950", "#f85149", "#d29922", "#39d2c0", "#8b949e"];
+			const total = Object.values(languages).reduce(function(a, b) { return a + b; }, 0);
+			const data = Object.entries(languages)
+				.sort(function(a, b) { return b[1] - a[1]; })
+				.map(function(entry, i) {
+					return { name: entry[0], value: entry[1], itemStyle: { color: colors[i % colors.length] } };
+				});
+
+			chart.setOption({
+				tooltip: {
+					backgroundColor: "#161b22",
+					borderColor: "#30363d",
+					textStyle: { color: "#e6edf3" },
+					formatter: function(params) {
+						var pct = ((params.value / total) * 100).toFixed(1);
+						return params.name + ": " + params.value.toLocaleString() + " bytes (" + pct + "%)";
+					}
+				},
+				graphic: [{
+					type: "text",
+					left: "center",
+					top: "center",
+					style: {
+						text: total.toLocaleString() + "\nbytes",
+						textAlign: "center",
+						fill: "#e6edf3",
+						fontSize: 14,
+						fontWeight: "bold",
+						lineHeight: 20
+					}
+				}],
+				series: [{
+					type: "pie",
+					radius: ["40%", "70%"],
+					center: ["50%", "50%"],
+					label: {
+						show: true,
+						color: "#8b949e",
+						fontSize: 11,
+						formatter: "{b}"
+					},
+					labelLine: { lineStyle: { color: "#30363d" } },
+					data: data,
+					emphasis: {
+						scaleSize: 6,
+						itemStyle: { shadowBlur: 10, shadowColor: "rgba(0,0,0,0.4)" }
+					}
+				}]
+			});
+		}
+
+		// --- Chart: Contributor Table with Sparklines ---
+		function renderContributors(contributors) {
+			const tbody = document.getElementById("contributor-tbody");
+			if (!tbody) return;
+			tbody.innerHTML = "";
+			if (!contributors || !contributors.length) {
+				tbody.innerHTML = '<tr><td colspan="4" class="text-center text-gp-muted py-6">No contributor data</td></tr>';
+				return;
+			}
+			const totalAll = contributors.reduce(function(s, c) { return s + (c.total_commits || 0); }, 0);
+			// Sort by total commits desc
+			const sorted = contributors.slice().sort(function(a, b) { return (b.total_commits || 0) - (a.total_commits || 0); });
+
+			sorted.forEach(function(c, idx) {
+				const tr = document.createElement("tr");
+				tr.className = "border-b border-gp-border hover:bg-gp-input/30 transition-colors";
+				const pct = totalAll > 0 ? ((c.total_commits / totalAll) * 100).toFixed(1) : "0.0";
+				tr.innerHTML =
+					'<td class="py-2 px-3 flex items-center gap-2">' +
+						'<img src="' + (c.avatar_url || "") + '" alt="" class="w-6 h-6 rounded-full bg-gp-input" onerror="this.style.display=\'none\'">' +
+						'<span class="text-gp-text">' + escapeHtml(c.login || "unknown") + '</span>' +
+					'</td>' +
+					'<td class="text-right py-2 px-3 text-gp-text">' + (c.total_commits || 0).toLocaleString() + '</td>' +
+					'<td class="text-center py-2 px-3"><div class="sparkline-cell inline-block" id="sparkline-' + idx + '"></div></td>' +
+					'<td class="text-right py-2 px-3 text-gp-muted">' + pct + '%</td>';
+				tbody.appendChild(tr);
+
+				// Render sparkline
+				if (c.weekly_commits && c.weekly_commits.length) {
+					requestAnimationFrame(function() {
+						const dom = document.getElementById("sparkline-" + idx);
+						if (!dom) return;
+						const sparkChart = echarts.init(dom, null, { renderer: "canvas", width: 80, height: 24 });
+						echartsInstances.push(sparkChart);
+						sparkChart.setOption({
+							grid: { left: 0, right: 0, top: 0, bottom: 0 },
+							xAxis: { type: "category", show: false, data: c.weekly_commits.map(function(_, i) { return i; }) },
+							yAxis: { type: "value", show: false },
+							series: [{
+								type: "line",
+								data: c.weekly_commits,
+								symbol: "none",
+								lineStyle: { width: 1.5, color: "#58a6ff" },
+								areaStyle: { color: "rgba(88,166,255,0.15)" },
+								smooth: true
+							}]
+						});
+					});
+				}
+			});
+		}
+
+		// --- Chart: Code Survival Curves (ECharts) ---
+		function renderSurvival(survivalCurves) {
+			const chart = initChart("chart-survival");
+			if (!chart) return;
+			if (!survivalCurves || !survivalCurves.length) {
+				chart.setOption({ title: { text: "No data", left: "center", top: "center", textStyle: { color: "#8b949e", fontSize: 14 } } });
+				return;
+			}
+			const colors = ["#58a6ff", "#bc8cff", "#3fb950", "#d29922", "#39d2c0", "#f85149", "#8b949e", "#e6edf3"];
+			const series = survivalCurves.map(function(curve, i) {
+				return {
+					name: curve.cohort,
+					type: "line",
+					smooth: true,
+					symbol: "circle",
+					symbolSize: 4,
+					lineStyle: { width: 2, color: colors[i % colors.length] },
+					itemStyle: { color: colors[i % colors.length] },
+					data: (curve.data || []).map(function(d) { return [d.weeks_elapsed, (d.surviving_lines * 100).toFixed(1)]; })
+				};
+			});
+			// Find max weeks for xAxis
+			var maxWeeks = 0;
+			survivalCurves.forEach(function(c) {
+				(c.data || []).forEach(function(d) {
+					if (d.weeks_elapsed > maxWeeks) maxWeeks = d.weeks_elapsed;
+				});
+			});
+
+			chart.setOption({
+				tooltip: {
+					trigger: "axis",
+					backgroundColor: "#161b22",
+					borderColor: "#30363d",
+					textStyle: { color: "#e6edf3" },
+					formatter: function(params) {
+						var html = "Week " + params[0].value[0] + "<br/>";
+						params.forEach(function(p) {
+							html += '<span style="color:' + p.color + ';">&#9679;</span> ' + p.seriesName + ": " + p.value[1] + "%<br/>";
+						});
+						return html;
+					}
+				},
+				legend: {
+					data: survivalCurves.map(function(c) { return c.cohort; }),
+					textStyle: { color: "#8b949e" },
+					bottom: 0
+				},
+				grid: { left: 50, right: 20, top: 20, bottom: 50 },
+				xAxis: {
+					type: "value",
+					name: "Weeks Elapsed",
+					nameTextStyle: { color: "#8b949e" },
+					min: 0,
+					max: maxWeeks || 52,
+					axisLine: { lineStyle: { color: "#30363d" } },
+					axisLabel: { color: "#8b949e" },
+					splitLine: { lineStyle: { color: "#21262d" } }
+				},
+				yAxis: {
+					type: "value",
+					name: "Surviving %",
+					nameTextStyle: { color: "#8b949e" },
+					min: 0,
+					max: 100,
+					axisLine: { lineStyle: { color: "#30363d" } },
+					axisLabel: { color: "#8b949e", formatter: "{value}%" },
+					splitLine: { lineStyle: { color: "#21262d" } }
+				},
+				series: series
+			});
+		}
+
+		// --- Chart: Hotspot Bubble Map (D3) ---
+		function renderHotspots(hotspots) {
+			const container = document.getElementById("chart-hotspots");
+			if (!container) return;
+			// Clear previous
+			container.querySelectorAll("svg").forEach(function(s) { s.remove(); });
+			if (!hotspots || !hotspots.length) {
+				container.innerHTML = '<div class="flex items-center justify-center h-full text-gp-muted">No data</div>';
+				return;
+			}
+			const width = container.clientWidth;
+			const height = container.clientHeight || 400;
+
+			const svg = d3.select(container)
+				.append("svg")
+				.attr("width", width)
+				.attr("height", height);
+
+			// Scales
+			const maxLoc = d3.max(hotspots, function(d) { return d.loc; }) || 1;
+			const maxChange = d3.max(hotspots, function(d) { return d.change_count; }) || 1;
+			const radiusScale = d3.scaleSqrt().domain([0, maxLoc]).range([6, 40]);
+			const colorScale = d3.scaleLinear().domain([0, maxChange]).range(["#58a6ff", "#f85149"]);
+
+			// Unique directories for grouping
+			const dirs = Array.from(new Set(hotspots.map(function(d) { return d.directory || "root"; })));
+			const dirColorScale = d3.scaleOrdinal()
+				.domain(dirs)
+				.range(["#58a6ff", "#bc8cff", "#3fb950", "#d29922", "#39d2c0", "#f85149"]);
+			const dirXTarget = {};
+			dirs.forEach(function(dir, i) {
+				dirXTarget[dir] = (width / (dirs.length + 1)) * (i + 1);
+			});
+
+			const nodes = hotspots.map(function(d) {
+				return {
+					path: d.path,
+					loc: d.loc,
+					change_count: d.change_count,
+					directory: d.directory || "root",
+					radius: radiusScale(d.loc)
+				};
+			});
+
+			const simulation = d3.forceSimulation(nodes)
+				.force("charge", d3.forceManyBody().strength(5))
+				.force("x", d3.forceX(function(d) { return dirXTarget[d.directory] || width / 2; }).strength(0.3))
+				.force("y", d3.forceY(height / 2).strength(0.3))
+				.force("collision", d3.forceCollide(function(d) { return d.radius + 2; }));
+
+			const circles = svg.selectAll("circle")
+				.data(nodes)
+				.join("circle")
+				.attr("r", function(d) { return d.radius; })
+				.attr("fill", function(d) { return colorScale(d.change_count); })
+				.attr("fill-opacity", 0.75)
+				.attr("stroke", function(d) { return dirColorScale(d.directory); })
+				.attr("stroke-width", 1.5)
+				.on("mouseover", function(event, d) {
+					d3Tooltip.style.display = "block";
+					d3Tooltip.innerHTML = "<strong>" + escapeHtml(d.path) + "</strong><br/>LOC: " + d.loc.toLocaleString() + "<br/>Changes: " + d.change_count;
+				})
+				.on("mousemove", function(event) {
+					d3Tooltip.style.left = (event.pageX + 12) + "px";
+					d3Tooltip.style.top = (event.pageY - 10) + "px";
+				})
+				.on("mouseout", function() {
+					d3Tooltip.style.display = "none";
+				});
+
+			simulation.on("tick", function() {
+				circles
+					.attr("cx", function(d) { return Math.max(d.radius, Math.min(width - d.radius, d.x)); })
+					.attr("cy", function(d) { return Math.max(d.radius, Math.min(height - d.radius, d.y)); });
+			});
+		}
+
+		// --- Chart: File Treemap (D3) ---
+		function renderTreemap(fileTree) {
+			const container = document.getElementById("chart-treemap");
+			const breadcrumbEl = document.getElementById("treemap-breadcrumb");
+			if (!container) return;
+			container.querySelectorAll("svg").forEach(function(s) { s.remove(); });
+			if (breadcrumbEl) breadcrumbEl.innerHTML = "";
+			if (!fileTree || !fileTree.length) {
+				container.innerHTML = '<div class="flex items-center justify-center h-full text-gp-muted">No data</div>';
+				return;
+			}
+			const width = container.clientWidth;
+			const height = container.clientHeight || 370;
+
+			// Build hierarchy from flat file paths
+			var rootObj = { name: "/", children: {} };
+			fileTree.forEach(function(f) {
+				var parts = f.path.split("/");
+				var current = rootObj;
+				parts.forEach(function(part, i) {
+					if (!current.children) current.children = {};
+					if (i === parts.length - 1) {
+						// Leaf
+						current.children[part] = {
+							name: part,
+							loc: f.loc || 0,
+							churn: f.churn || 0,
+							fullPath: f.path
+						};
+					} else {
+						if (!current.children[part]) {
+							current.children[part] = { name: part, children: {} };
+						}
+						current = current.children[part];
+					}
+				});
+			});
+
+			function convertToHierarchy(obj) {
+				if (obj.children && typeof obj.children === "object" && !Array.isArray(obj.children)) {
+					var childArr = Object.values(obj.children).map(convertToHierarchy);
+					return { name: obj.name, children: childArr };
+				}
+				return { name: obj.name, value: obj.loc || 1, churn: obj.churn || 0, fullPath: obj.fullPath || obj.name };
+			}
+
+			var hierarchyData = convertToHierarchy(rootObj);
+			var maxChurn = 0;
+			fileTree.forEach(function(f) { if ((f.churn || 0) > maxChurn) maxChurn = f.churn; });
+			var churnColor = d3.scaleLinear().domain([0, maxChurn || 1]).range(["#3fb950", "#f85149"]);
+
+			function renderLevel(data, breadcrumb) {
+				container.querySelectorAll("svg").forEach(function(s) { s.remove(); });
+
+				// Update breadcrumb
+				if (breadcrumbEl) {
+					breadcrumbEl.innerHTML = "";
+					breadcrumb.forEach(function(crumb, i) {
+						var span = document.createElement("span");
+						span.textContent = crumb.name;
+						if (i < breadcrumb.length - 1) {
+							span.addEventListener("click", function() {
+								renderLevel(crumb.data, breadcrumb.slice(0, i + 1));
+							});
+							breadcrumbEl.appendChild(span);
+							var sep = document.createTextNode(" / ");
+							breadcrumbEl.appendChild(sep);
+						} else {
+							breadcrumbEl.appendChild(span);
+						}
+					});
+				}
+
+				var root = d3.hierarchy(data)
+					.sum(function(d) { return d.value || 0; })
+					.sort(function(a, b) { return (b.value || 0) - (a.value || 0); });
+
+				d3.treemap()
+					.size([width, height])
+					.paddingInner(2)
+					.paddingOuter(2)
+					.round(true)(root);
+
+				var svg = d3.select(container)
+					.append("svg")
+					.attr("width", width)
+					.attr("height", height);
+
+				var nodes = svg.selectAll("g")
+					.data(root.leaves())
+					.join("g")
+					.attr("transform", function(d) { return "translate(" + d.x0 + "," + d.y0 + ")"; });
+
+				nodes.append("rect")
+					.attr("width", function(d) { return Math.max(0, d.x1 - d.x0); })
+					.attr("height", function(d) { return Math.max(0, d.y1 - d.y0); })
+					.attr("fill", function(d) { return churnColor(d.data.churn || 0); })
+					.attr("fill-opacity", 0.7)
+					.attr("stroke", "#0d1117")
+					.attr("stroke-width", 1)
+					.attr("rx", 2)
+					.style("cursor", function(d) { return d.data.children ? "pointer" : "default"; })
+					.on("mouseover", function(event, d) {
+						d3Tooltip.style.display = "block";
+						d3Tooltip.innerHTML = "<strong>" + escapeHtml(d.data.fullPath || d.data.name) + "</strong><br/>LOC: " + (d.data.value || d.value || 0).toLocaleString() + "<br/>Churn: " + (d.data.churn || 0);
+					})
+					.on("mousemove", function(event) {
+						d3Tooltip.style.left = (event.pageX + 12) + "px";
+						d3Tooltip.style.top = (event.pageY - 10) + "px";
+					})
+					.on("mouseout", function() {
+						d3Tooltip.style.display = "none";
+					});
+
+				// Labels - only if rect is large enough
+				nodes.append("text")
+					.attr("x", 4)
+					.attr("y", 14)
+					.text(function(d) {
+						var w = d.x1 - d.x0;
+						var h = d.y1 - d.y0;
+						if (w < 40 || h < 18) return "";
+						var name = d.data.name;
+						var maxChars = Math.floor(w / 7);
+						return name.length > maxChars ? name.slice(0, maxChars - 1) + "\u2026" : name;
+					})
+					.attr("fill", "#e6edf3")
+					.attr("font-size", "11px")
+					.style("pointer-events", "none");
+
+				// Click to zoom into directories
+				root.children && root.children.forEach(function(child) {
+					if (child.data.children && child.data.children.length > 0) {
+						// Find all leaf rects belonging to this subtree
+						var leafPaths = new Set();
+						child.leaves().forEach(function(l) { leafPaths.add(l); });
+
+						svg.selectAll("g")
+							.filter(function(d) { return leafPaths.has(d); })
+							.select("rect")
+							.style("cursor", "pointer")
+							.on("click", function(event) {
+								event.stopPropagation();
+								d3Tooltip.style.display = "none";
+								var newBreadcrumb = breadcrumb.concat([{ name: child.data.name, data: child.data }]);
+								renderLevel(child.data, newBreadcrumb);
+							});
+					}
+				});
+			}
+
+			renderLevel(hierarchyData, [{ name: "/", data: hierarchyData }]);
+		}
+
+		// --- Utility ---
+		function escapeHtml(str) {
+			var div = document.createElement("div");
+			div.appendChild(document.createTextNode(str));
+			return div.innerHTML;
+		}
+
+		// --- Main Fetch ---
+		async function analyzeRepo() {
+			const raw = repoInput.value;
+			const repo = parseRepoInput(raw);
+			if (!repo) {
+				showError("Invalid input. Enter a repository as owner/repo or a GitHub URL.");
+				return;
+			}
+			hideError();
+			setLoading(repo);
+			disposeAllCharts();
+
+			try {
+				const response = await fetch("/api/analyze?repo=" + encodeURIComponent(repo));
+				if (!response.ok) {
+					var errData;
+					try { errData = await response.json(); } catch(e) { errData = null; }
+					var msg = (errData && errData.detail) ? errData.detail : "Request failed with status " + response.status;
+					throw new Error(msg);
+				}
+				const data = await response.json();
+				setLoaded();
+				renderDashboard(data);
+			} catch (err) {
+				setErrorState();
+				showError(err.message || "An unexpected error occurred.");
+			}
+		}
+
+		function renderDashboard(data) {
+			renderKPIs(data.summary || {});
+			renderTimeline(data.commit_activity);
+			renderHeatmap(data.punch_card);
+			renderLanguages(data.languages);
+			renderContributors(data.contributors);
+			renderHotspots(data.hotspots);
+			renderTreemap(data.file_tree);
+			renderSurvival(data.survival_curves);
+		}
+
+		// --- Events ---
+		analyzeBtn.addEventListener("click", analyzeRepo);
+		repoInput.addEventListener("keydown", function(e) {
+			if (e.key === "Enter") analyzeRepo();
+		});
+
+		// Resize handler for ECharts
+		window.addEventListener("resize", function() {
+			echartsInstances.forEach(function(c) {
+				try { c.resize(); } catch(e) {}
+			});
+		});
+	})();
+	</script>
 </body>
 </html>
