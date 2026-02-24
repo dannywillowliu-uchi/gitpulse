@@ -55,6 +55,13 @@
 			border-radius: 12px;
 			padding: 1.25rem;
 		}
+		@media (max-width: 639px) {
+			.card { padding: 0.75rem; border-radius: 8px; }
+			#chart-timeline, #chart-survival { height: 240px !important; }
+			#chart-heatmap, #chart-languages { height: 220px !important; }
+			#chart-hotspots { height: 300px !important; }
+			#chart-treemap { height: 280px !important; }
+		}
 		.error-banner {
 			background: rgba(248, 81, 73, 0.1);
 			border: 1px solid #f85149;
@@ -99,14 +106,14 @@
 		}
 	</style>
 </head>
-<body class="bg-gp-bg min-h-screen">
+<body class="bg-gp-bg min-h-screen overflow-x-hidden">
 	<!-- Header -->
-	<header class="border-b border-gp-border px-6 py-4">
-		<div class="max-w-7xl mx-auto flex items-center gap-4 flex-wrap">
-			<h1 class="text-2xl font-bold bg-gradient-to-r from-gp-blue to-gp-purple bg-clip-text text-transparent whitespace-nowrap">
+	<header class="border-b border-gp-border px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+		<div class="max-w-7xl mx-auto flex items-center gap-2 sm:gap-4 flex-wrap">
+			<h1 class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-gp-blue to-gp-purple bg-clip-text text-transparent whitespace-nowrap">
 				GitPulse
 			</h1>
-			<div class="flex-1 flex gap-2 min-w-[300px]">
+			<div class="flex-1 flex gap-2 min-w-0 sm:min-w-[300px]">
 				<input
 					id="repo-input"
 					type="text"
@@ -115,7 +122,7 @@
 				>
 				<button
 					id="analyze-btn"
-					class="bg-gp-blue hover:bg-blue-500 text-white font-medium px-5 py-2 rounded-lg transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+					class="bg-gp-blue hover:bg-blue-500 text-white font-medium px-3 sm:px-5 py-2 rounded-lg transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					Analyze
 				</button>
@@ -131,7 +138,7 @@
 	</header>
 
 	<!-- Main Content -->
-	<main class="max-w-7xl mx-auto px-6 py-6">
+	<main class="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 md:py-6">
 		<!-- Error Banner -->
 		<div id="error-banner" class="error-banner">
 			<svg class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -146,26 +153,26 @@
 		</div>
 
 		<!-- KPI Cards -->
-		<div id="kpi-section" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6" style="display:none;">
+		<div id="kpi-section" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4 mb-4 md:mb-6" style="display:none;">
 			<div class="card text-center" id="kpi-commits">
 				<div class="text-gp-muted text-sm mb-1">Total Commits</div>
-				<div class="text-3xl font-bold text-gp-text" data-target="0">0</div>
+				<div class="text-2xl sm:text-3xl font-bold text-gp-text" data-target="0">0</div>
 			</div>
 			<div class="card text-center" id="kpi-contributors">
 				<div class="text-gp-muted text-sm mb-1">Contributors</div>
-				<div class="text-3xl font-bold text-gp-text" data-target="0">0</div>
+				<div class="text-2xl sm:text-3xl font-bold text-gp-text" data-target="0">0</div>
 			</div>
 			<div class="card text-center" id="kpi-loc">
 				<div class="text-gp-muted text-sm mb-1">Lines of Code</div>
-				<div class="text-3xl font-bold text-gp-text" data-target="0">0</div>
+				<div class="text-2xl sm:text-3xl font-bold text-gp-text" data-target="0">0</div>
 			</div>
 			<div class="card text-center" id="kpi-prs">
 				<div class="text-gp-muted text-sm mb-1">Open PRs</div>
-				<div class="text-3xl font-bold text-gp-text" data-target="0">0</div>
+				<div class="text-2xl sm:text-3xl font-bold text-gp-text" data-target="0">0</div>
 			</div>
 			<div class="card text-center" id="kpi-age">
 				<div class="text-gp-muted text-sm mb-1">Repo Age (days)</div>
-				<div class="text-3xl font-bold text-gp-text" data-target="0">0</div>
+				<div class="text-2xl sm:text-3xl font-bold text-gp-text" data-target="0">0</div>
 			</div>
 			<div class="card text-center" id="kpi-active-file">
 				<div class="text-gp-muted text-sm mb-1">Most Active</div>
@@ -174,7 +181,7 @@
 		</div>
 
 		<!-- KPI Skeleton -->
-		<div id="kpi-skeleton" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6" style="display:none;">
+		<div id="kpi-skeleton" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4 mb-4 md:mb-6" style="display:none;">
 			<div class="card text-center"><div class="skeleton skeleton-text mx-auto w-20"></div><div class="skeleton skeleton-value mx-auto"></div></div>
 			<div class="card text-center"><div class="skeleton skeleton-text mx-auto w-20"></div><div class="skeleton skeleton-value mx-auto"></div></div>
 			<div class="card text-center"><div class="skeleton skeleton-text mx-auto w-20"></div><div class="skeleton skeleton-value mx-auto"></div></div>
@@ -186,13 +193,13 @@
 		<!-- Charts Grid -->
 		<div id="charts-section" style="display:none;">
 			<!-- Commit Timeline - Full Width -->
-			<div class="card mb-6">
+			<div class="card mb-4 lg:mb-6">
 				<h2 class="text-lg font-semibold text-gp-text mb-3">Commit Timeline</h2>
 				<div id="chart-timeline" style="height:320px;"></div>
 			</div>
 
 			<!-- Activity Heatmap + Language Donut - 60/40 -->
-			<div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+			<div class="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6 mb-4 lg:mb-6">
 				<div class="card lg:col-span-3">
 					<h2 class="text-lg font-semibold text-gp-text mb-3">Activity Heatmap</h2>
 					<div id="chart-heatmap" style="height:280px;"></div>
@@ -204,7 +211,7 @@
 			</div>
 
 			<!-- Contributor Table - Full Width -->
-			<div class="card mb-6">
+			<div class="card mb-4 lg:mb-6">
 				<h2 class="text-lg font-semibold text-gp-text mb-3">Contributors</h2>
 				<div class="overflow-x-auto">
 					<table class="w-full text-sm" id="contributor-table">
@@ -222,7 +229,7 @@
 			</div>
 
 			<!-- Hotspot Bubble + File Treemap - 50/50 -->
-			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-4 lg:mb-6">
 				<div class="card">
 					<h2 class="text-lg font-semibold text-gp-text mb-3">Code Hotspots</h2>
 					<div id="chart-hotspots" style="height:400px; position:relative;"></div>
@@ -235,7 +242,7 @@
 			</div>
 
 			<!-- Survival Curves - Full Width -->
-			<div class="card mb-6">
+			<div class="card mb-4 lg:mb-6">
 				<h2 class="text-lg font-semibold text-gp-text mb-3">Code Survival Curves</h2>
 				<div id="chart-survival" style="height:320px;"></div>
 			</div>
@@ -243,25 +250,25 @@
 
 		<!-- Charts Skeleton -->
 		<div id="charts-skeleton" style="display:none;">
-			<div class="card mb-6"><div class="skeleton skeleton-text w-40"></div><div class="skeleton skeleton-chart mt-3"></div></div>
-			<div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+			<div class="card mb-4 lg:mb-6"><div class="skeleton skeleton-text w-40"></div><div class="skeleton skeleton-chart mt-3"></div></div>
+			<div class="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6 mb-4 lg:mb-6">
 				<div class="card lg:col-span-3"><div class="skeleton skeleton-text w-36"></div><div class="skeleton skeleton-chart mt-3"></div></div>
 				<div class="card lg:col-span-2"><div class="skeleton skeleton-text w-28"></div><div class="skeleton skeleton-chart mt-3"></div></div>
 			</div>
-			<div class="card mb-6"><div class="skeleton skeleton-text w-32"></div><div class="skeleton skeleton-chart mt-3"></div></div>
-			<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+			<div class="card mb-4 lg:mb-6"><div class="skeleton skeleton-text w-32"></div><div class="skeleton skeleton-chart mt-3"></div></div>
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-4 lg:mb-6">
 				<div class="card"><div class="skeleton skeleton-text w-32"></div><div class="skeleton skeleton-chart mt-3" style="min-height:370px;"></div></div>
 				<div class="card"><div class="skeleton skeleton-text w-28"></div><div class="skeleton skeleton-chart mt-3" style="min-height:370px;"></div></div>
 			</div>
-			<div class="card mb-6"><div class="skeleton skeleton-text w-44"></div><div class="skeleton skeleton-chart mt-3"></div></div>
+			<div class="card mb-4 lg:mb-6"><div class="skeleton skeleton-text w-44"></div><div class="skeleton skeleton-chart mt-3"></div></div>
 		</div>
 
 		<!-- Empty State -->
-		<div id="empty-state" class="flex flex-col items-center justify-center py-32 text-center">
-			<h2 class="text-3xl font-bold bg-gradient-to-r from-gp-blue to-gp-purple bg-clip-text text-transparent mb-3">
+		<div id="empty-state" class="flex flex-col items-center justify-center py-16 sm:py-24 md:py-32 text-center">
+			<h2 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-gp-blue to-gp-purple bg-clip-text text-transparent mb-3">
 				GitPulse
 			</h2>
-			<p class="text-gp-muted text-lg mb-1">GitHub project progress visualization</p>
+			<p class="text-gp-muted text-base sm:text-lg mb-1">GitHub project progress visualization</p>
 			<p class="text-gp-muted text-sm">Enter a repository above to get started</p>
 		</div>
 	</main>
@@ -288,6 +295,8 @@
 		const d3Tooltip = $("#d3-tooltip");
 
 		let echartsInstances = [];
+		let lastData = null;
+		let resizeTimer = null;
 
 		// --- URL Parsing ---
 		function parseRepoInput(input) {
@@ -1009,6 +1018,7 @@
 		}
 
 		function renderDashboard(data) {
+			lastData = data;
 			renderKPIs(data.summary || {});
 			renderTimeline(data.commit_activity);
 			renderHeatmap(data.punch_card);
@@ -1033,11 +1043,18 @@
 			});
 		});
 
-		// Resize handler for ECharts
+		// Resize handler for ECharts + D3
 		window.addEventListener("resize", function() {
 			echartsInstances.forEach(function(c) {
 				try { c.resize(); } catch(e) {}
 			});
+			clearTimeout(resizeTimer);
+			resizeTimer = setTimeout(function() {
+				if (lastData) {
+					renderHotspots(lastData.hotspots);
+					renderTreemap(lastData.file_tree);
+				}
+			}, 250);
 		});
 	})();
 	</script>
