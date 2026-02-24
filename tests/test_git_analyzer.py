@@ -271,6 +271,33 @@ class TestAnalyzeRepo:
 		assert app_entry["churn"] > 0
 
 	@pytest.mark.asyncio
+	async def test_loc_merged_into_hotspots(self, tmp_path):
+		work = tmp_path / "repo"
+		work.mkdir()
+		subprocess.run(["git", "init", str(work)], check=True, capture_output=True)
+		subprocess.run(
+			["git", "-C", str(work), "config", "user.email", "t@t.com"],
+			check=True,
+			capture_output=True,
+		)
+		subprocess.run(
+			["git", "-C", str(work), "config", "user.name", "T"],
+			check=True,
+			capture_output=True,
+		)
+		(work / "app.py").write_text("a\nb\nc\n")
+		subprocess.run(["git", "-C", str(work), "add", "."], check=True, capture_output=True)
+		subprocess.run(
+			["git", "-C", str(work), "commit", "-m", "init"],
+			check=True,
+			capture_output=True,
+		)
+
+		result = await analyze_repo(str(work))
+		hotspot = next(h for h in result["hotspots"] if h["path"] == "app.py")
+		assert hotspot["loc"] == 3
+
+	@pytest.mark.asyncio
 	async def test_cleanup_on_error(self, tmp_path):
 		"""Temp directory is cleaned up even if analysis fails."""
 		with pytest.raises(RuntimeError):

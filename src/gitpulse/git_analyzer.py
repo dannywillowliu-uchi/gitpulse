@@ -301,6 +301,11 @@ async def analyze_repo(repo_url: str) -> dict:
 		for entry in file_tree:
 			entry["churn"] = churn_map.get(entry["path"], 0)
 
+		# Merge LOC from file_tree into hotspots
+		loc_map = {entry["path"]: entry["loc"] for entry in file_tree}
+		for hotspot in hotspots:
+			hotspot["loc"] = loc_map.get(hotspot["path"], 0)
+
 		return {
 			"hotspots": hotspots,
 			"file_tree": file_tree,
