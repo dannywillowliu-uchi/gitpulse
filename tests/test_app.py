@@ -82,6 +82,7 @@ def test_analyze_cache_hit(mock_client_cls, mock_cache, client):
 	mock_gh.get_commit_activity.assert_not_called()
 
 
+@patch("gitpulse.app.analyze_repo", None)
 @patch("gitpulse.app.cache")
 @patch("gitpulse.app.GitHubClient")
 def test_analyze_success(mock_client_cls, mock_cache, client):
@@ -135,3 +136,51 @@ def test_analyze_success(mock_client_cls, mock_cache, client):
 	assert data["file_tree"] == []
 	assert data["survival_curves"] == []
 	mock_cache.set.assert_called_once()
+
+
+@patch("gitpulse.app.analyze_repo", new_callable=AsyncMock)
+@patch("gitpulse.app.cache")
+@patch("gitpulse.app.GitHubClient")
+def test_analyze_success_with_git_data(mock_client_cls, mock_cache, mock_analyze, client):
+	mock_gh = AsyncMock()
+	mock_client_cls.return_value = mock_gh
+	mock_gh.__aenter__.return_value = mock_gh
+	mock_gh.get_repo.return_value = {
+		"created_at": "2024-01-01T00:00:00Z",
+		"default_branch": "main",
+		"pushed_at": "2025-01-15T10:00:00Z",
+	}
+	mock_gh.get_commit_activity.return_value = [
+		{"total": 10, "week": 1704067200, "days": [1, 2, 3, 0, 1, 2, 1]},
+	]
+	mock_gh.get_code_frequency.return_value = [[1704067200, 500, -120]]
+	mock_gh.get_contributors.return_value = [
+		{
+			"author": {"login": "user1", "avatar_url": "https://example.com/a.png"},
+			"total": 50,
+			"weeks": [{"w": 1704067200, "a": 10, "d": 5, "c": 3}],
+		},
+	]
+	mock_gh.get_punch_card.return_value = [[0, 14, 5]]
+	mock_gh.get_open_pulls.return_value = [{"id": 1}]
+	mock_gh.get_languages.return_value = {"Python": 35000}
+	mock_cache.get.return_value = None
+	mock_analyze.return_value = {
+		"hotspots": [{"path": "src/main.py", "loc": 200, "change_count": 15, "directory": "src"}],
+		"file_tree": [{"path": "src/main.py", "loc": 200, "churn": 42}],
+		"survival_curves": [
+			{"cohort": "2024-Q1", "data": [{"weeks_elapsed": 0, "surviving_lines": 1.0}]},
+		],
+	}
+
+	response = client.get("/api/analyze?repo=owner/repo")
+	assert response.status_code == 200
+	data = response.json()
+
+	mock_analyze.assert_awaited_once_with("https://github.com/owner/repo")
+	assert data["hotspots"] == [
+		{"path": "src/main.py", "loc": 200, "change_count": 15, "directory": "src"}
+	]
+	assert data["file_tree"] == [{"path": "src/main.py", "loc": 200, "churn": 42}]
+	assert len(data["survival_curves"]) == 1
+	assert data["summary"]["most_active_file"] == "src/main.py"
