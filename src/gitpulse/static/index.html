@@ -121,6 +121,13 @@
 				</button>
 			</div>
 		</div>
+		<div class="max-w-7xl mx-auto mt-2 flex items-center gap-2 flex-wrap pl-[calc(theme(spacing.0)+0px)]">
+			<span class="text-gp-muted text-xs">Try:</span>
+			<button class="example-chip bg-gp-border/50 border border-gp-border text-gp-text text-xs px-3 py-1 rounded-full hover:border-gp-blue hover:text-gp-blue transition-colors" data-repo="facebook/react">facebook/react</button>
+			<button class="example-chip bg-gp-border/50 border border-gp-border text-gp-text text-xs px-3 py-1 rounded-full hover:border-gp-blue hover:text-gp-blue transition-colors" data-repo="pallets/flask">pallets/flask</button>
+			<button class="example-chip bg-gp-border/50 border border-gp-border text-gp-text text-xs px-3 py-1 rounded-full hover:border-gp-blue hover:text-gp-blue transition-colors" data-repo="fastapi/fastapi">fastapi/fastapi</button>
+			<button class="example-chip bg-gp-border/50 border border-gp-border text-gp-text text-xs px-3 py-1 rounded-full hover:border-gp-blue hover:text-gp-blue transition-colors" data-repo="d3/d3">d3/d3</button>
+		</div>
 	</header>
 
 	<!-- Main Content -->
@@ -1016,6 +1023,14 @@
 		analyzeBtn.addEventListener("click", analyzeRepo);
 		repoInput.addEventListener("keydown", function(e) {
 			if (e.key === "Enter") analyzeRepo();
+		});
+
+		// Example repo chips
+		document.querySelectorAll(".example-chip").forEach(function(chip) {
+			chip.addEventListener("click", function() {
+				repoInput.value = chip.dataset.repo;
+				analyzeRepo();
+			});
 		});
 
 		// Resize handler for ECharts
