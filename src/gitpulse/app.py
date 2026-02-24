@@ -1,15 +1,17 @@
 import asyncio
 import logging
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from gitpulse.cache import Cache
 from gitpulse.github_client import GitHubClient
+from gitpulse.rate_limit import SlidingWindowRateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +24,28 @@ app = FastAPI(title="GitPulse", version="0.1.0")
 STATIC_DIR = Path(__file__).parent / "static"
 REPO_PATTERN = re.compile(r"^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$")
 cache = Cache()
+rate_limiter = SlidingWindowRateLimiter()
+
+
+def check_rate_limit(request: Request) -> None:
+	client_ip = request.client.host if request.client else "unknown"
+	if not rate_limiter.is_allowed(client_ip):
+		raise HTTPException(status_code=429, detail="Rate limit exceeded.")
+
+
+def verify_api_key(
+	authorization: str | None = Header(None),
+	x_api_key: str | None = Header(None),
+) -> None:
+	api_key = os.environ.get("GITPULSE_API_KEY")
+	if api_key is None:
+		return
+	if authorization and authorization.startswith("Bearer "):
+		if authorization[7:] == api_key:
+			return
+	if x_api_key and x_api_key == api_key:
+		return
+	raise HTTPException(status_code=401, detail="Invalid or missing API key.")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -36,7 +60,11 @@ async def health() -> dict:
 	return {"status": "ok"}
 
 
-@app.get("/api/analyze", response_model=None)
+@app.get(
+	"/api/analyze",
+	response_model=None,
+	dependencies=[Depends(check_rate_limit), Depends(verify_api_key)],
+)
 async def analyze(repo: str = Query(...)) -> dict | JSONResponse:
 	if not REPO_PATTERN.match(repo):
 		return JSONResponse(
