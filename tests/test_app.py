@@ -1,6 +1,14 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
+import pytest
+
+from gitpulse.app import rate_limiter
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+	rate_limiter.reset()
 
 
 def test_index_returns_html(client):
@@ -184,3 +192,118 @@ def test_analyze_success_with_git_data(mock_client_cls, mock_cache, mock_analyze
 	assert data["file_tree"] == [{"path": "src/main.py", "loc": 200, "churn": 42}]
 	assert len(data["survival_curves"]) == 1
 	assert data["summary"]["most_active_file"] == "src/main.py"
+
+
+# --- Rate limiting tests ---
+
+
+def test_rate_limit_allows_up_to_threshold(client):
+	for _ in range(30):
+		response = client.get("/api/analyze?repo=invalid-no-slash")
+		assert response.status_code == 400
+
+
+def test_rate_limit_returns_429_after_threshold(client):
+	for _ in range(30):
+		client.get("/api/analyze?repo=invalid-no-slash")
+	response = client.get("/api/analyze?repo=invalid-no-slash")
+	assert response.status_code == 429
+	assert "Rate limit exceeded" in response.json()["detail"]
+
+
+def test_rate_limit_resets_after_window(client, monkeypatch):
+	import time
+
+	base = time.monotonic()
+	current_time = [base]
+	monkeypatch.setattr("time.monotonic", lambda: current_time[0])
+
+	for _ in range(30):
+		client.get("/api/analyze?repo=invalid-no-slash")
+
+	response = client.get("/api/analyze?repo=invalid-no-slash")
+	assert response.status_code == 429
+
+	current_time[0] = base + 61
+
+	response = client.get("/api/analyze?repo=invalid-no-slash")
+	assert response.status_code == 400
+
+
+def test_rate_limit_does_not_affect_health(client):
+	for _ in range(30):
+		client.get("/api/analyze?repo=invalid-no-slash")
+	response = client.get("/api/health")
+	assert response.status_code == 200
+
+
+# --- API key auth tests ---
+
+
+def test_api_key_not_set_allows_requests(client, monkeypatch):
+	monkeypatch.delenv("GITPULSE_API_KEY", raising=False)
+	response = client.get("/api/analyze?repo=invalid-no-slash")
+	assert response.status_code == 400
+
+
+def test_api_key_required_missing_key(client, monkeypatch):
+	monkeypatch.setenv("GITPULSE_API_KEY", "test-secret-key")
+	response = client.get("/api/analyze?repo=owner/repo")
+	assert response.status_code == 401
+	assert "API key" in response.json()["detail"]
+
+
+def test_api_key_required_invalid_bearer(client, monkeypatch):
+	monkeypatch.setenv("GITPULSE_API_KEY", "test-secret-key")
+	response = client.get(
+		"/api/analyze?repo=owner/repo",
+		headers={"Authorization": "Bearer wrong-key"},
+	)
+	assert response.status_code == 401
+
+
+def test_api_key_required_invalid_x_api_key(client, monkeypatch):
+	monkeypatch.setenv("GITPULSE_API_KEY", "test-secret-key")
+	response = client.get(
+		"/api/analyze?repo=owner/repo",
+		headers={"X-API-Key": "wrong-key"},
+	)
+	assert response.status_code == 401
+
+
+def test_api_key_valid_bearer(client, monkeypatch):
+	monkeypatch.setenv("GITPULSE_API_KEY", "test-secret-key")
+	response = client.get(
+		"/api/analyze?repo=invalid-no-slash",
+		headers={"Authorization": "Bearer test-secret-key"},
+	)
+	assert response.status_code == 400
+
+
+def test_api_key_valid_x_api_key(client, monkeypatch):
+	monkeypatch.setenv("GITPULSE_API_KEY", "test-secret-key")
+	response = client.get(
+		"/api/analyze?repo=invalid-no-slash",
+		headers={"X-API-Key": "test-secret-key"},
+	)
+	assert response.status_code == 400
+
+
+def test_api_key_health_not_protected(client, monkeypatch):
+	monkeypatch.setenv("GITPULSE_API_KEY", "test-secret-key")
+	response = client.get("/api/health")
+	assert response.status_code == 200
+
+
+def test_rate_limit_checked_before_api_key(client, monkeypatch):
+	monkeypatch.setenv("GITPULSE_API_KEY", "test-secret-key")
+	for _ in range(30):
+		client.get(
+			"/api/analyze?repo=invalid-no-slash",
+			headers={"Authorization": "Bearer test-secret-key"},
+		)
+	response = client.get(
+		"/api/analyze?repo=owner/repo",
+		headers={"Authorization": "Bearer test-secret-key"},
+	)
+	assert response.status_code == 429
