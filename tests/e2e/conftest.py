@@ -4,8 +4,10 @@ import time
 from collections.abc import Generator
 
 import pytest
-import uvicorn
-from playwright.sync_api import Page
+
+playwright = pytest.importorskip("playwright")
+import uvicorn  # noqa: E402
+from playwright.sync_api import Page  # noqa: E402
 
 
 def _get_free_port() -> int:
